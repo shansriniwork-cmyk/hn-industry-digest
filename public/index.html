@@ -247,54 +247,60 @@
     return [points, comments, by, host].filter(Boolean).join(" · ");
   }
 
-  /**
-   * Stub summary generator.
-   *
-   * Replace the body of this function with a real call to an LLM backend
-   * (e.g. a server-side proxy that holds your API key, or the Claude.ai
-   * "ask Claude" runtime capability if this page is published as an
-   * Artifact). Never call an LLM API directly from client-side JS with an
-   * embedded key — the key would be visible to anyone who views the page
-   * source.
-   *
-   * Only called on a cache miss (see getSummary below) — once a summary
-   * exists for a given story + industry + day, it is reused.
-   *
-   * @param {{title: string, url?: string, text?: string}} story
-   * @param {string} industry
-   * @returns {Promise<string>} a 2-sentence summary
-   */
   const SUMMARIZE_ENDPOINT = "/api/summarize"; // same server that serves this page
 
-  async function generateSummary(story, industry) {
+  /**
+   * One request summarizes all the given stories for the industry.
+   * Returns an object mapping story id -> 2-sentence summary. A story the
+   * model skipped is simply missing from the object.
+   */
+  async function generateSummaries(stories, industry) {
     const res = await fetch(SUMMARIZE_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: story.title, url: story.url, industry }),
+      body: JSON.stringify({
+        industry,
+        stories: stories.map((s) => ({ id: String(s.id), title: s.title, url: s.url })),
+      }),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || `Summarize request failed (HTTP ${res.status})`);
     }
     const data = await res.json();
-    return data.summary;
+    return data.summaries || {};
   }
 
   /**
-   * Cache-aware wrapper around generateSummary(). Keyed by story id + industry
+   * Cache-aware wrapper around generateSummaries(). Keyed by story id + industry
    * + calendar day, so: (a) re-selecting an industry already summarized today
    * reuses the cached text instantly, and (b) summaries naturally expire the
-   * next day alongside the story list refresh.
+   * next day alongside the story list refresh. Only stories missing from the
+   * cache are sent to the server, in a single request.
    */
-  async function getSummary(story, industry) {
+  async function getSummaries(stories, industry) {
     const cache = readCache(SUMMARY_CACHE_KEY) || {};
-    const key = `${story.id}::${industry}::${todayStamp()}`;
-    if (cache[key]) return cache[key];
+    const keyFor = (story) => `${story.id}::${industry}::${todayStamp()}`;
+    const result = {};
+    const missing = [];
+    for (const story of stories) {
+      const hit = cache[keyFor(story)];
+      if (hit) result[story.id] = hit;
+      else missing.push(story);
+    }
 
-    const summary = await generateSummary(story, industry);
-    cache[key] = summary;
-    writeCache(SUMMARY_CACHE_KEY, cache);
-    return summary;
+    if (missing.length) {
+      const fresh = await generateSummaries(missing, industry);
+      for (const story of missing) {
+        const summary = fresh[String(story.id)];
+        if (summary) {
+          result[story.id] = summary;
+          cache[keyFor(story)] = summary;
+        }
+      }
+      writeCache(SUMMARY_CACHE_KEY, cache);
+    }
+    return result;
   }
 
   function renderStoryCard(story, rank) {
@@ -369,20 +375,29 @@
       storyListEl.appendChild(renderStoryCard(story, i + 1));
     });
 
-    // Generate (or reuse cached) summaries in parallel; each card updates independently.
-    await Promise.all(
-      stories.map(async (story) => {
-        const target = storyListEl.querySelector(`[data-summary-for="${story.id}"]`);
-        try {
-          const summary = await getSummary(story, industry);
-          target.textContent = summary;
-          target.classList.remove("pending");
-        } catch (err) {
-          target.textContent = `Could not generate summary: ${err.message}`;
-          target.classList.add("pending");
-        }
-      })
-    );
+    // One server call summarizes every story that is not already cached.
+    let summaries = {};
+    let failure = null;
+    try {
+      summaries = await getSummaries(stories, industry);
+    } catch (err) {
+      failure = err;
+    }
+
+    for (const story of stories) {
+      const target = storyListEl.querySelector(`[data-summary-for="${story.id}"]`);
+      if (!target) continue; // industry was switched mid-request; the cards were replaced
+      const summary = summaries[story.id];
+      if (summary) {
+        target.textContent = summary;
+        target.classList.remove("pending");
+      } else {
+        target.textContent = failure
+          ? `Could not generate summary: ${failure.message}`
+          : "No summary was returned for this story.";
+        target.classList.add("pending");
+      }
+    }
   }
 
   industryInput.addEventListener("change", loadDigest);

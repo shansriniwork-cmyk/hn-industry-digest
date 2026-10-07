@@ -32,4 +32,4 @@ Railway and Fly.io work the same way: run `node server.js` and set `GROQ_API_KEY
 
 ## Protection for a public site
 
-The endpoint is public, so anyone with the link can use your Groq quota. Built in: 10 KB request cap, input length limits, and 60 requests per minute per IP. For more, set a spending or usage limit in your Groq account, and rotate the key if you see unexpected usage.
+The endpoint is public, so anyone with the link can use your Groq quota. Built in: 20 KB request cap, input length limits, and 60 requests per minute per IP. For more, set a spending or usage limit in your Groq account, and rotate the key if you see unexpected usage.
