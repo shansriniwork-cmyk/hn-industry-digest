@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HN Industry Digest</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card-bg: #ffffff;
+    --border: #e4e4e0;
+    --ink: #1a1a1a;
+    --ink-dim: #6b6b66;
+    --accent: #ff6600; /* Hacker News orange */
+    --accent-dim: #ffe8d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 1.5rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--ink-dim);
+    font-size: 0.92rem;
+    margin: 0 0 1.5rem;
+  }
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls label {
+    font-size: 0.85rem;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .controls select {
+    flex: 1 1 220px;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: var(--card-bg);
+    color: var(--ink);
+  }
+  .controls select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+  }
+
+  .status {
+    color: var(--ink-dim);
+    font-size: 0.9rem;
+    padding: 1rem 0;
+  }
+  .status.error { color: #b3261e; }
+
+  .story-list {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .story-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+  }
+  .story-rank {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border-radius: 4px;
+    padding: 0.1rem 0.45rem;
+    margin-bottom: 0.4rem;
+  }
+  .story-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.3rem;
+  }
+  .story-title a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .story-title a:hover { text-decoration: underline; }
+  .story-meta {
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+    margin-bottom: 0.6rem;
+  }
+  .story-meta a { color: var(--ink-dim); }
+
+  .summary-block {
+    border-top: 1px dashed var(--border);
+    padding-top: 0.6rem;
+    margin-top: 0.4rem;
+  }
+  .summary-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+  .summary-text {
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+  .summary-text.pending {
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+
+  footer {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+    color: var(--ink-dim);
+    font-size: 0.8rem;
+  }
+  code {
+    background: #efefe9;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Hacker News Industry Digest</h1>
+  <p class="subtitle">Top 5 Hacker News stories, refreshed once a day, each with a "why this matters" summary for the industry you choose below.</p>
+  <div class="controls">
+    <label for="industryInput">Industry</label>
+    <select id="industryInput">
+      <option value="fintech" selected>Fintech / Banking</option>
+      <option value="healthcare">Healthcare</option>
+      <option value="retail / e-commerce">Retail / E-commerce</option>
+      <option value="logistics / supply chain">Logistics / Supply Chain</option>
+      <option value="manufacturing">Manufacturing</option>
+      <option value="energy / utilities">Energy / Utilities</option>
+      <option value="insurance">Insurance</option>
+      <option value="real estate">Real Estate</option>
+      <option value="education">Education</option>
+      <option value="media / entertainment">Media / Entertainment</option>
+      <option value="telecommunications">Telecommunications</option>
+      <option value="government / public sector">Government / Public Sector</option>
+      <option value="legal">Legal</option>
+      <option value="cybersecurity">Cybersecurity</option>
+      <option value="software / developer tools">Software / Developer Tools</option>
+      <option value="automotive">Automotive</option>
+      <option value="agriculture">Agriculture</option>
+      <option value="travel / hospitality">Travel / Hospitality</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <div id="status" class="status"></div>
+  <ol class="story-list" id="storyList"></ol>
+</main>
+
+<footer>
+  Stories via the official <a href="https://github.com/HackerNews/API" target="_blank" rel="noopener">Hacker News API</a> (no key required).
+  The top-5 list refreshes at most once per calendar day (cached in this browser via <code>localStorage</code>).
+  Summaries are cached per story + industry, so switching the dropdown re-uses any summary already generated today.
+  Summaries are generated by this site's server (<code>/api/summarize</code>), which keeps the Groq API key private and calls the LLM.
+</footer>
+
+<script>
+  const HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json";
+  const HN_ITEM_URL = (id) => `https://hacker-news.firebaseio.com/v0/item/${id}.json`;
+  const STORY_COUNT = 5;
+
+  const STORIES_CACHE_KEY = "hnDigest.stories.v1";
+  const SUMMARY_CACHE_KEY = "hnDigest.summaries.v1";
+
+  const industryInput = document.getElementById("industryInput");
+  const statusEl = document.getElementById("status");
+  const storyListEl = document.getElementById("storyList");
+
+  function todayStamp() {
+    // Calendar-day granularity, in the viewer's local time zone.
+    return new Date().toDateString();
+  }
+
+  function setStatus(message, isError = false) {
+    statusEl.textContent = message;
+    statusEl.classList.toggle("error", isError);
+  }
+
+  // ---- localStorage helpers (wrapped: storage can throw or be unavailable) ----
+  function readCache(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function writeCache(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Storage full or unavailable (e.g. private browsing) — degrade silently;
+      // the page still works, it just re-fetches/re-summarizes more often.
+    }
+  }
+
+  function formatMeta(story) {
+    const points = story.score != null ? `${story.score} points` : "";
+    const comments = story.descendants != null ? `${story.descendants} comments` : "";
+    const by = story.by ? `by ${story.by}` : "";
+    const host = (() => {
+      try { return story.url ? new URL(story.url).hostname.replace(/^www\./, "") : "news.ycombinator.com"; }
+      catch { return ""; }
+    })();
+    return [points, comments, by, host].filter(Boolean).join(" · ");
+  }
+
+  /**
+   * Stub summary generator.
+   *
+   * Replace the body of this function with a real call to an LLM backend
+   * (e.g. a server-side proxy that holds your API key, or the Claude.ai
+   * "ask Claude" runtime capability if this page is published as an
+   * Artifact). Never call an LLM API directly from client-side JS with an
+   * embedded key — the key would be visible to anyone who views the page
+   * source.
+   *
+   * Only called on a cache miss (see getSummary below) — once a summary
+   * exists for a given story + industry + day, it is reused.
+   *
+   * @param {{title: string, url?: string, text?: string}} story
+   * @param {string} industry
+   * @returns {Promise<string>} a 2-sentence summary
+   */
+  const SUMMARIZE_ENDPOINT = "/api/summarize"; // same server that serves this page
+
+  async function generateSummary(story, industry) {
+    const res = await fetch(SUMMARIZE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: story.title, url: story.url, industry }),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `Summarize request failed (HTTP ${res.status})`);
+    }
+    const data = await res.json();
+    return data.summary;
+  }
+
+  /**
+   * Cache-aware wrapper around generateSummary(). Keyed by story id + industry
+   * + calendar day, so: (a) re-selecting an industry already summarized today
+   * reuses the cached text instantly, and (b) summaries naturally expire the
+   * next day alongside the story list refresh.
+   */
+  async function getSummary(story, industry) {
+    const cache = readCache(SUMMARY_CACHE_KEY) || {};
+    const key = `${story.id}::${industry}::${todayStamp()}`;
+    if (cache[key]) return cache[key];
+
+    const summary = await generateSummary(story, industry);
+    cache[key] = summary;
+    writeCache(SUMMARY_CACHE_KEY, cache);
+    return summary;
+  }
+
+  function renderStoryCard(story, rank) {
+    const li = document.createElement("li");
+    li.className = "story-card";
+    const link = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+
+    li.innerHTML = `
+      <span class="story-rank">#${rank}</span>
+      <h2 class="story-title"><a href="${link}" target="_blank" rel="noopener">${escapeHtml(story.title)}</a></h2>
+      <div class="story-meta">${escapeHtml(formatMeta(story))}</div>
+      <div class="summary-block">
+        <div class="summary-label">Why this matters</div>
+        <div class="summary-text pending" data-summary-for="${story.id}">Generating summary…</div>
+      </div>
+    `;
+    return li;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str ?? "";
+    return div.innerHTML;
+  }
+
+  async function fetchTopStoriesFromNetwork() {
+    const idsRes = await fetch(HN_TOP_STORIES_URL);
+    if (!idsRes.ok) throw new Error(`Failed to fetch top story IDs (HTTP ${idsRes.status})`);
+    const ids = await idsRes.json();
+    const topIds = ids.slice(0, STORY_COUNT);
+
+    const stories = await Promise.all(
+      topIds.map(async (id) => {
+        const res = await fetch(HN_ITEM_URL(id));
+        if (!res.ok) throw new Error(`Failed to fetch story ${id} (HTTP ${res.status})`);
+        return res.json();
+      })
+    );
+    return stories;
+  }
+
+  /**
+   * Returns today's top-5 stories, fetching from the network only once per
+   * calendar day (per browser). Subsequent loads/industry switches on the
+   * same day reuse the cached list.
+   */
+  async function getTopStories() {
+    const cached = readCache(STORIES_CACHE_KEY);
+    if (cached && cached.day === todayStamp() && Array.isArray(cached.stories)) {
+      return cached.stories;
+    }
+    const stories = await fetchTopStoriesFromNetwork();
+    writeCache(STORIES_CACHE_KEY, { day: todayStamp(), stories });
+    return stories;
+  }
+
+  async function loadDigest() {
+    const industry = industryInput.value;
+    storyListEl.innerHTML = "";
+    setStatus("Loading top 5 stories…");
+
+    let stories;
+    try {
+      stories = await getTopStories();
+    } catch (err) {
+      setStatus(`Could not load Hacker News stories: ${err.message}`, true);
+      return;
+    }
+
+    setStatus("");
+    stories.forEach((story, i) => {
+      storyListEl.appendChild(renderStoryCard(story, i + 1));
+    });
+
+    // Generate (or reuse cached) summaries in parallel; each card updates independently.
+    await Promise.all(
+      stories.map(async (story) => {
+        const target = storyListEl.querySelector(`[data-summary-for="${story.id}"]`);
+        try {
+          const summary = await getSummary(story, industry);
+          target.textContent = summary;
+          target.classList.remove("pending");
+        } catch (err) {
+          target.textContent = `Could not generate summary: ${err.message}`;
+          target.classList.add("pending");
+        }
+      })
+    );
+  }
+
+  industryInput.addEventListener("change", loadDigest);
+
+  // Load on page open. If the browser is left open across midnight, a timer
+  // re-checks periodically so the list still rolls over without a manual reload.
+  loadDigest();
+  setInterval(loadDigest, 30 * 60 * 1000); // every 30 min, cheap no-op unless the day changed
+</script>
+
+</body>
+</html>
